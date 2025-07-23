@@ -26,7 +26,7 @@ steps:
           echo "✅ Cloud Function 'deploycloudfunctions' already exists. Skipping deployment."
         fi
 
-  # Step 1: Build Docker image for the app
+  # Step 1: Build Docker image
   - name: 'gcr.io/cloud-builders/docker'
     id: build-app-image
     dir: 'app'
@@ -37,7 +37,7 @@ steps:
       - .
     waitFor: ['check-and-deploy-function']
 
-  # Step 2: Push the image to Artifact Registry
+  # Step 2: Push image
   - name: 'gcr.io/cloud-builders/docker'
     id: push-app-image
     args:
@@ -45,7 +45,7 @@ steps:
       - asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA
     waitFor: ['build-app-image']
 
-  # Step 3: Publish a message to Pub/Sub to trigger the Cloud Function
+  # Step 3: Trigger Cloud Function via Pub/Sub
   - name: 'gcr.io/cloud-builders/gcloud'
     id: publish-to-pubsub
     entrypoint: bash
