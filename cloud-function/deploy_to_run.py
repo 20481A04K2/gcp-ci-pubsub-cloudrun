@@ -21,8 +21,8 @@ def deploy_to_cloud_run(service_name, image_uri):
 
         project_id = "sylvan-hydra-464904-d9"
         operation = build_client.create_build(project_id=project_id, build=build_config)
-        print(f"✅ Triggered Cloud Build for deploying {service_name} with image {image_uri}")
+        print(f"✅ Triggered Cloud Build to deploy {service_name} with image {image_uri}")
     
     except Exception as e:
-        print(f"❌ Cloud Build API call failed: {e}")
+        print(f"❌ Failed to call Cloud Build API: {e}")
         raise
