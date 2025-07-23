@@ -1,12 +1,13 @@
 steps:
-  # Step 1: Deploy Cloud Function only if it doesn't exist
+  # ✅ Step 0: Conditionally deploy the Cloud Function if not already present
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'check-function'
     entrypoint: 'bash'
     args:
-      - '-c'
+      - -c
       - |
-        if ! gcloud functions describe deployAppFunction --region=asia-south1 --gen2; then
+        if ! gcloud functions describe deployAppFunction --region=asia-south1 --gen2 > /dev/null 2>&1; then
+          echo "☁️ Deploying Cloud Function for the first time..."
           gcloud functions deploy deployAppFunction \
             --gen2 \
             --runtime=python311 \
@@ -17,33 +18,37 @@ steps:
             --trigger-location=asia-south1 \
             --timeout=60s
         else
-          echo "✅ Cloud Function already exists. Skipping deploy."
-
-  # Step 2: Build Docker image (targeting Artifact Registry)
+          echo "✅ Cloud Function already exists. Skipping deployment."
+  
+  # 🐳 Step 1: Build Docker image (targeting Artifact Registry)
   - name: 'gcr.io/cloud-builders/docker'
     dir: 'app'
-    args: [
-      'build',
-      '-t',
-      'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA',
-      '.'
-    ]
+    args:
+      [
+        'build',
+        '-t',
+        'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA',
+        '.'
+      ]
 
-  # Step 3: Push Docker image to Artifact Registry
+  # 📦 Step 2: Push Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: [
-      'push',
-      'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA'
-    ]
+    args:
+      [
+        'push',
+        'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA'
+      ]
 
-  # Step 4: Publish Pub/Sub message to trigger Cloud Function deploy
+  # 🔁 Step 3: Publish to Pub/Sub (trigger Cloud Function to deploy)
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
-      - pubsub
-      - topics
-      - publish
-      - deploy-topic
-      - --message={"image":"asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA"}
+      [
+        'pubsub',
+        'topics',
+        'publish',
+        'deploy-topic',
+        '--message={"image":"asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA"}'
+      ]
 
 options:
   logging: CLOUD_LOGGING_ONLY
