@@ -1,0 +1,15 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    dir: 'app'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/my-app:$SHORT_SHA', '.']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/my-app:$SHORT_SHA']
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - pubsub
+      - topics
+      - publish
+      - deploy-topic
+      - --message={"image":"gcr.io/$PROJECT_ID/my-app:$SHORT_SHA"}
