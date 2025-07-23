@@ -7,9 +7,9 @@ steps:
       - -c
       - |
         echo "🔍 Checking if Cloud Function exists...";
-        if ! gcloud functions describe deployApp --region=asia-south1 --gen2 > /dev/null 2>&1; then
+        if ! gcloud functions describe deployAppfunction --region=asia-south1 --gen2 > /dev/null 2>&1; then
           echo "☁️ Deploying Cloud Function for the first time...";
-          gcloud functions deploy deployApp \
+          gcloud functions deploy deployAppfunction \
             --gen2 \
             --runtime=python311 \
             --entry-point=deploy_app_logic \
