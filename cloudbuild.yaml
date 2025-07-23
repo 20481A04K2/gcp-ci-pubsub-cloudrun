@@ -1,5 +1,5 @@
 steps:
-  # 🔍 Step 1: Check if Cloud Function exists, if not deploy it
+  # Step 1: Deploy Cloud Function only if it doesn't exist
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'check-function'
     entrypoint: 'bash'
@@ -18,21 +18,32 @@ steps:
             --timeout=60s
         else
           echo "✅ Cloud Function already exists. Skipping deploy."
-  
-  # 🐳 Step 2: Build Docker image for your app
+
+  # Step 2: Build Docker image (targeting Artifact Registry)
   - name: 'gcr.io/cloud-builders/docker'
     dir: 'app'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/my-app:$SHORT_SHA', '.']
+    args: [
+      'build',
+      '-t',
+      'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA',
+      '.'
+    ]
 
-  # 📦 Step 3: Push image to Artifact Registry (or Container Registry)
+  # Step 3: Push Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/my-app:$SHORT_SHA']
+    args: [
+      'push',
+      'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA'
+    ]
 
-  # 📤 Step 4: Publish message to Pub/Sub (triggers Cloud Function)
+  # Step 4: Publish Pub/Sub message to trigger Cloud Function deploy
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - pubsub
       - topics
       - publish
       - deploy-topic
-      - --message={"image":"gcr.io/$PROJECT_ID/my-app:$SHORT_SHA"}
+      - --message={"image":"asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA"}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
