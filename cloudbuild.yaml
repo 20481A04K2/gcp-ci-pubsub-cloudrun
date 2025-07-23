@@ -17,7 +17,7 @@ steps:
             --source=cloud-function \
             --trigger-topic=deploy-topic \
             --trigger-location=asia-south1 \
-            --ingress=internal \
+            --ingress-settings=internal-only \
             --no-allow-unauthenticated \
             --timeout=540s \
             --memory=512MB
