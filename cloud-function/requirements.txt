@@ -1,2 +1,2 @@
-functions-framework
+functions-framework==3.5.0
 google-cloud-build==3.15.0
