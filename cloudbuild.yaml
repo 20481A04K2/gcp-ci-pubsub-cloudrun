@@ -1,8 +1,8 @@
 steps:
-  # ✅ Step 0: Conditionally deploy the Cloud Function if not already present
+  # ✅ Step 0: Conditionally deploy the Cloud Function
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'check-function'
-    entrypoint: 'bash'
+    entrypoint: bash
     args:
       - -c
       - |
@@ -20,35 +20,29 @@ steps:
         else
           echo "✅ Cloud Function already exists. Skipping deployment."
   
-  # 🐳 Step 1: Build Docker image (targeting Artifact Registry)
+  # 🐳 Step 1: Build Docker image (Artifact Registry)
   - name: 'gcr.io/cloud-builders/docker'
     dir: 'app'
     args:
-      [
-        'build',
-        '-t',
-        'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA',
-        '.'
-      ]
+      - build
+      - -t
+      - asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA
+      - .
 
   # 📦 Step 2: Push Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
-      [
-        'push',
-        'asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA'
-      ]
+      - push
+      - asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA
 
-  # 🔁 Step 3: Publish to Pub/Sub (trigger Cloud Function to deploy)
+  # 🔁 Step 3: Publish to Pub/Sub (trigger Cloud Function)
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
-      [
-        'pubsub',
-        'topics',
-        'publish',
-        'deploy-topic',
-        '--message={"image":"asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA"}'
-      ]
+      - pubsub
+      - topics
+      - publish
+      - deploy-topic
+      - --message={"image":"asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA"}
 
 options:
   logging: CLOUD_LOGGING_ONLY
