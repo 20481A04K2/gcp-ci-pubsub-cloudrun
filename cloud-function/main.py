@@ -1,54 +1,37 @@
-steps:
-  # Step 0: Deploy Cloud Function only if it doesn't exist
-  - name: 'gcr.io/cloud-builders/gcloud'
-    id: check-function
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        echo "🔍 Checking if Cloud Function exists...";
-        if ! gcloud functions describe deployAppfunction --region=asia-south1 --gen2 > /dev/null 2>&1; then
-          echo "☁️ Deploying Cloud Function for the first time...";
-          gcloud functions deploy deployAppfunction \
-            --gen2 \
-            --runtime=python311 \
-            --entry-point=deploy_app_logic \
-            --region=asia-south1 \
-            --source=cloud-function \
-            --trigger-topic=deploy-topic \
-            --timeout=540s \
-            --memory=512MB;
-        else
-          echo "✅ Cloud Function already exists. Skipping deployment.";
-        fi
+import base64
+import json
+from google.cloud import build_v1
 
-  # Step 1: Build Docker image from 'app/' directory
-  - name: 'gcr.io/cloud-builders/docker'
-    dir: 'app'
-    args:
-      - build
-      - -t
-      - asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA
-      - .
+def deploy_app_logic(event, context):
+    print("📥 Received Pub/Sub event")
 
-  # Step 2: Push Docker image to Artifact Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - push
-      - asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA
+    try:
+        # Decode and parse message
+        message = base64.b64decode(event['data']).decode('utf-8')
+        data = json.loads(message)
 
-  # Step 3: Publish to Pub/Sub to trigger Cloud Function
-  - name: 'gcr.io/cloud-builders/gcloud'
-    args:
-      - pubsub
-      - topics
-      - publish
-      - deploy-topic
-      - --message={"image":"asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA"}
+        image = data.get("image")
+        if not image:
+            raise ValueError("Missing 'image' key in Pub/Sub message")
 
-substitutions:
-  _REGION: asia-south1
-  _SERVICE_NAME: my-app
+        # Deploy using Cloud Build
+        print(f"🚀 Triggering deployment for image: {image}")
+        build_client = build_v1.CloudBuildClient()
+        build = {
+            "steps": [{
+                "name": "gcr.io/cloud-builders/gcloud",
+                "args": [
+                    "run", "deploy", "my-app",
+                    "--image", image,
+                    "--region", "asia-south1",
+                    "--platform", "managed",
+                    "--allow-unauthenticated"
+                ]
+            }]
+        }
+        build_client.create_build(project_id="sylvan-hydra-464904-d9", build=build)
+        print("✅ Deployment triggered successfully.")
 
-options:
-  logging: CLOUD_LOGGING_ONLY
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        raise
