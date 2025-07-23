@@ -6,10 +6,19 @@ steps:
     args:
       - -c
       - >
-        echo "Checking if Cloud Function exists...";
-        if ! gcloud functions describe deployAppFunction2 --region=asia-south1 --gen2 > /dev/null 2>&1; then
+        echo "🔍 Checking if Cloud Function exists...";
+        if ! gcloud functions describe deployAppFunc --region=asia-south1 --gen2 > /dev/null 2>&1; then
           echo "☁️ Deploying Cloud Function for the first time...";
-          gcloud functions deploy deployAppFunction2 --gen2 --runtime=python311 --region=asia-south1 --entry-point=deploy_app_logic --source=cloud-function --trigger-topic=deploy-topic --trigger-location=asia-south1 --timeout=60s;
+          gcloud functions deploy deployAppFunc \
+            --gen2 \
+            --runtime=python311 \
+            --entry-point=deploy_app_logic \
+            --region=asia-south1 \
+            --source=cloud-function \
+            --trigger-topic=deploy-topic \
+            --trigger-location=asia-south1 \
+            --timeout=540s \
+            --memory=512MB;
         else
           echo "✅ Cloud Function already exists. Skipping deployment.";
         fi
