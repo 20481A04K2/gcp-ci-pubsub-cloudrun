@@ -1,54 +1,61 @@
 steps:
   # Step 0: Deploy Cloud Function only if it doesn't exist
   - name: 'gcr.io/cloud-builders/gcloud'
-    id: check-function
+    id: check-and-deploy-function
     entrypoint: bash
     args:
       - -c
       - |
-        echo "🔍 Checking if Cloud Function exists...";
-        if ! gcloud functions describe deployAppfunction33 --region=asia-south1 --gen2 > /dev/null 2>&1; then
-          echo "☁️ Deploying Cloud Function for the first time...";
-          gcloud functions deploy deployAppfunction33 \
+        echo "🔍 [Step 0] Checking if Cloud Function 'deploycloudfunctions' exists..."
+        if ! gcloud functions describe deploycloudfunctions --region=asia-south1 --gen2 > /dev/null 2>&1; then
+          echo "🚀 Deploying Cloud Function 'deploycloudfunctions' (first time)..."
+          gcloud functions deploy deploycloudfunctions \
             --gen2 \
             --runtime=python311 \
             --entry-point=deploy_app_logic \
             --region=asia-south1 \
             --source=cloud-function \
             --trigger-topic=deploy-topic \
+            --trigger-location=asia-south1 \
+            --ingress=internal \
+            --no-allow-unauthenticated \
             --timeout=540s \
-            --memory=512MB;
+            --memory=512MB
+          echo "✅ Cloud Function 'deploycloudfunctions' deployed successfully."
         else
-          echo "✅ Cloud Function already exists. Skipping deployment.";
+          echo "✅ Cloud Function 'deploycloudfunctions' already exists. Skipping deployment."
         fi
 
-  # Step 1: Build Docker image from 'app/' directory
+  # Step 1: Build Docker image for the app
   - name: 'gcr.io/cloud-builders/docker'
+    id: build-app-image
     dir: 'app'
     args:
       - build
       - -t
       - asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA
       - .
+    waitFor: ['check-and-deploy-function']
 
-  # Step 2: Push Docker image to Artifact Registry
+  # Step 2: Push the image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
+    id: push-app-image
     args:
       - push
       - asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA
+    waitFor: ['build-app-image']
 
-  # Step 3: Publish to Pub/Sub to trigger Cloud Function
+  # Step 3: Publish a message to Pub/Sub to trigger the Cloud Function
   - name: 'gcr.io/cloud-builders/gcloud'
+    id: publish-to-pubsub
+    entrypoint: bash
     args:
-      - pubsub
-      - topics
-      - publish
-      - deploy-topic
-      - --message={"image":"asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA"}
-
-substitutions:
-  _REGION: asia-south1
-  _SERVICE_NAME: my-app
+      - -c
+      - |
+        echo "📤 [Step 3] Publishing image info to Pub/Sub 'deploy-topic'..."
+        gcloud pubsub topics publish deploy-topic \
+          --message='{"image":"asia-south1-docker.pkg.dev/'"$PROJECT_ID"'/my-repo/my-app:'"$SHORT_SHA"'"}'
+        echo "✅ Message published to Pub/Sub. Cloud Function will now run."
 
 options:
   logging: CLOUD_LOGGING_ONLY
