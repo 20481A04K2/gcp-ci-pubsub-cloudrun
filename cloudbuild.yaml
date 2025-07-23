@@ -1,4 +1,5 @@
 steps:
+  # Step 0: Deploy Cloud Function only if it doesn't exist
   - name: 'gcr.io/cloud-builders/gcloud'
     id: check-function
     entrypoint: bash
@@ -8,19 +9,12 @@ steps:
         echo "Checking if Cloud Function exists...";
         if ! gcloud functions describe deployAppFunction --region=asia-south1 --gen2 > /dev/null 2>&1; then
           echo "☁️ Deploying Cloud Function for the first time...";
-          gcloud functions deploy deployAppFunction
-            --gen2
-            --runtime=python311
-            --region=asia-south1
-            --entry-point=deploy_app_logic
-            --source=cloud-function
-            --trigger-topic=deploy-topic
-            --trigger-location=asia-south1
-            --timeout=60s;
+          gcloud functions deploy deployAppFunction --gen2 --runtime=python311 --region=asia-south1 --entry-point=deploy_app_logic --source=cloud-function --trigger-topic=deploy-topic --trigger-location=asia-south1 --timeout=60s;
         else
           echo "✅ Cloud Function already exists. Skipping deployment.";
         fi
 
+  # Step 1: Build Docker image (Artifact Registry)
   - name: 'gcr.io/cloud-builders/docker'
     dir: 'app'
     args:
@@ -29,11 +23,13 @@ steps:
       - asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA
       - .
 
+  # Step 2: Push Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - push
       - asia-south1-docker.pkg.dev/$PROJECT_ID/my-repo/my-app:$SHORT_SHA
 
+  # Step 3: Publish to Pub/Sub (to trigger Cloud Function)
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - pubsub
