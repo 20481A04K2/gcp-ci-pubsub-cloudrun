@@ -9,3 +9,5 @@ def deploy_app_logic(event, context):
 
     if image:
         deploy_to_cloud_run("my-app", image)
+    else:
+        print("❌ No image found in the message payload.")
