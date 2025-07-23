@@ -1,3 +1,2 @@
-
 functions-framework
-google-cloud-build
+google-cloud-build==3.15.0
